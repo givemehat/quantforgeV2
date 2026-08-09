@@ -37,29 +37,31 @@ warnings.filterwarnings("ignore")
 # Data Classes
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class FrontierPoint:
-    weights:   np.ndarray
-    ret:       float
-    vol:       float
-    sharpe:    float
-    labels:    List[str] = field(default_factory=list)
+    weights: np.ndarray
+    ret: float
+    vol: float
+    sharpe: float
+    labels: List[str] = field(default_factory=list)
 
 
 @dataclass
 class OptimizationResult:
-    method:      str
-    weights:     Dict[str, float]
+    method: str
+    weights: Dict[str, float]
     expected_ret: float
     expected_vol: float
-    sharpe:      float
-    frontier:    Optional[List[FrontierPoint]] = None
-    metadata:    Dict = field(default_factory=dict)
+    sharpe: float
+    frontier: Optional[List[FrontierPoint]] = None
+    metadata: Dict = field(default_factory=dict)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Classical Optimizer (Markowitz + PyPortfolioOpt)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class ClassicalOptimizer:
     """
@@ -73,11 +75,11 @@ class ClassicalOptimizer:
 
     def __init__(self, returns: pd.DataFrame, rf: float = 0.07 / 252):
         self.returns = returns
-        self.rf_ann  = rf * 252
-        self.mu_ann  = returns.mean() * 252
-        self.cov_ann = returns.cov()  * 252
+        self.rf_ann = rf * 252
+        self.mu_ann = returns.mean() * 252
+        self.cov_ann = returns.cov() * 252
         self.tickers = returns.columns.tolist()
-        self.n       = len(self.tickers)
+        self.n = len(self.tickers)
 
     # ── PyPortfolioOpt wrappers ───────────────────────────────────────────────
 
@@ -85,21 +87,26 @@ class ClassicalOptimizer:
         """Maximize Sharpe via convex optimization with L2 regularization."""
         try:
             from pypfopt import EfficientFrontier, expected_returns, risk_models
-            mu  = expected_returns.mean_historical_return(
-                      pd.DataFrame({t: (1+self.returns[t]).cumprod() for t in self.tickers}))
+
+            mu = expected_returns.mean_historical_return(
+                pd.DataFrame({t: (1 + self.returns[t]).cumprod() for t in self.tickers})
+            )
             cov = risk_models.CovarianceShrinkage(
-                      pd.DataFrame({t: (1+self.returns[t]).cumprod() for t in self.tickers})).ledoit_wolf()
-            ef  = EfficientFrontier(mu, cov, weight_bounds=(0, 1))
-            ef.add_objective(__import__('pypfopt').objective_functions.L2_reg, gamma=l2_reg)
+                pd.DataFrame({t: (1 + self.returns[t]).cumprod() for t in self.tickers})
+            ).ledoit_wolf()
+            ef = EfficientFrontier(mu, cov, weight_bounds=(0, 1))
+            ef.add_objective(
+                __import__("pypfopt").objective_functions.L2_reg, gamma=l2_reg
+            )
             ef.max_sharpe(risk_free_rate=self.rf_ann)
-            w   = ef.clean_weights()
+            w = ef.clean_weights()
             perf = ef.portfolio_performance(risk_free_rate=self.rf_ann, verbose=False)
             return OptimizationResult(
-                method       = "max_sharpe_pyportopt",
-                weights      = dict(w),
-                expected_ret = round(perf[0], 4),
-                expected_vol = round(perf[1], 4),
-                sharpe       = round(perf[2], 4),
+                method="max_sharpe_pyportopt",
+                weights=dict(w),
+                expected_ret=round(perf[0], 4),
+                expected_vol=round(perf[1], 4),
+                sharpe=round(perf[2], 4),
             )
         except Exception as e:
             log.warning(f"PyPortfolioOpt max_sharpe failed: {e}, using scipy")
@@ -109,18 +116,19 @@ class ClassicalOptimizer:
         """Global Minimum Variance Portfolio."""
         try:
             from pypfopt import EfficientFrontier, expected_returns, risk_models
-            mu  = self.mu_ann
+
+            mu = self.mu_ann
             cov = self.cov_ann
-            ef  = EfficientFrontier(mu, cov, weight_bounds=(0, 1))
+            ef = EfficientFrontier(mu, cov, weight_bounds=(0, 1))
             ef.min_volatility()
-            w    = ef.clean_weights()
+            w = ef.clean_weights()
             perf = ef.portfolio_performance(risk_free_rate=self.rf_ann, verbose=False)
             return OptimizationResult(
-                method       = "min_vol_pyportopt",
-                weights      = dict(w),
-                expected_ret = round(perf[0], 4),
-                expected_vol = round(perf[1], 4),
-                sharpe       = round(perf[2], 4),
+                method="min_vol_pyportopt",
+                weights=dict(w),
+                expected_ret=round(perf[0], 4),
+                expected_vol=round(perf[1], 4),
+                sharpe=round(perf[2], 4),
             )
         except Exception as e:
             log.warning(f"PyPortfolioOpt min_vol failed: {e}, using scipy")
@@ -129,22 +137,29 @@ class ClassicalOptimizer:
     # ── Scipy implementations (fallback + custom) ────────────────────────────
 
     def _scipy_max_sharpe(self) -> OptimizationResult:
-        mu  = self.mu_ann.values
+        mu = self.mu_ann.values
         cov = self.cov_ann.values
-        rf  = self.rf_ann
-        n   = self.n
+        rf = self.rf_ann
+        n = self.n
 
         def neg_sharpe(w):
             r = w @ mu
             v = np.sqrt(w @ cov @ w)
             return -(r - rf) / (v + 1e-12)
 
-        bounds      = [(0, 1)] * n
+        bounds = [(0, 1)] * n
         constraints = [{"type": "eq", "fun": lambda w: w.sum() - 1}]
         w0 = np.ones(n) / n
-        res = minimize(neg_sharpe, w0, bounds=bounds, constraints=constraints,
-                       method="SLSQP", options={"maxiter": 1000, "ftol": 1e-9})
-        w = np.maximum(res.x, 0); w /= w.sum()
+        res = minimize(
+            neg_sharpe,
+            w0,
+            bounds=bounds,
+            constraints=constraints,
+            method="SLSQP",
+            options={"maxiter": 1000, "ftol": 1e-9},
+        )
+        w = np.maximum(res.x, 0)
+        w /= w.sum()
         r = float(w @ mu)
         v = float(np.sqrt(w @ cov @ w))
         return OptimizationResult(
@@ -156,19 +171,21 @@ class ClassicalOptimizer:
         )
 
     def _scipy_min_vol(self) -> OptimizationResult:
-        mu  = self.mu_ann.values
+        mu = self.mu_ann.values
         cov = self.cov_ann.values
-        n   = self.n
+        n = self.n
 
         def portfolio_vol(w):
             return np.sqrt(w @ cov @ w)
 
-        bounds      = [(0, 1)] * n
+        bounds = [(0, 1)] * n
         constraints = [{"type": "eq", "fun": lambda w: w.sum() - 1}]
         w0 = np.ones(n) / n
-        res = minimize(portfolio_vol, w0, bounds=bounds, constraints=constraints,
-                       method="SLSQP")
-        w = np.maximum(res.x, 0); w /= w.sum()
+        res = minimize(
+            portfolio_vol, w0, bounds=bounds, constraints=constraints, method="SLSQP"
+        )
+        w = np.maximum(res.x, 0)
+        w /= w.sum()
         r = float(w @ mu)
         v = float(np.sqrt(w @ cov @ w))
         return OptimizationResult(
@@ -188,22 +205,29 @@ class ClassicalOptimizer:
           min Σ (RC_i - σ/n)²
         """
         cov = self.cov_ann.values
-        mu  = self.mu_ann.values
-        n   = self.n
+        mu = self.mu_ann.values
+        n = self.n
 
         def risk_budget_obj(w):
-            sig  = np.sqrt(w @ cov @ w)
-            MRC  = cov @ w / (sig + 1e-12)   # marginal risk contrib
-            RC   = w * MRC                    # risk contrib
+            sig = np.sqrt(w @ cov @ w)
+            MRC = cov @ w / (sig + 1e-12)  # marginal risk contrib
+            RC = w * MRC  # risk contrib
             target = sig / n
-            return np.sum((RC - target)**2)
+            return np.sum((RC - target) ** 2)
 
-        bounds      = [(1e-4, 1)] * n
+        bounds = [(1e-4, 1)] * n
         constraints = [{"type": "eq", "fun": lambda w: w.sum() - 1}]
         w0 = np.ones(n) / n
-        res = minimize(risk_budget_obj, w0, bounds=bounds, constraints=constraints,
-                       method="SLSQP", options={"maxiter": 5000})
-        w = np.maximum(res.x, 0); w /= w.sum()
+        res = minimize(
+            risk_budget_obj,
+            w0,
+            bounds=bounds,
+            constraints=constraints,
+            method="SLSQP",
+            options={"maxiter": 5000},
+        )
+        w = np.maximum(res.x, 0)
+        w /= w.sum()
         r = float(w @ mu)
         v = float(np.sqrt(w @ cov @ w))
         return OptimizationResult(
@@ -219,10 +243,10 @@ class ClassicalOptimizer:
         Trace the Efficient Frontier via target-return sweeping.
         Returns list of (w, ret, vol, sharpe) for each frontier point.
         """
-        mu  = self.mu_ann.values
+        mu = self.mu_ann.values
         cov = self.cov_ann.values
-        n   = self.n
-        rf  = self.rf_ann
+        n = self.n
+        rf = self.rf_ann
 
         ret_min = mu.min() * 1.01
         ret_max = mu.max() * 0.99
@@ -235,24 +259,35 @@ class ClassicalOptimizer:
                 {"type": "eq", "fun": lambda w, t=target: w @ mu - t},
             ]
             bounds = [(0, 1)] * n
-            w0     = np.ones(n) / n
-            res    = minimize(lambda w: np.sqrt(w @ cov @ w), w0,
-                              bounds=bounds, constraints=constraints, method="SLSQP")
+            w0 = np.ones(n) / n
+            res = minimize(
+                lambda w: np.sqrt(w @ cov @ w),
+                w0,
+                bounds=bounds,
+                constraints=constraints,
+                method="SLSQP",
+            )
             if res.success:
-                w   = np.maximum(res.x, 0); w /= (w.sum() + 1e-12)
+                w = np.maximum(res.x, 0)
+                w /= w.sum() + 1e-12
                 vol = float(np.sqrt(w @ cov @ w))
                 ret = float(w @ mu)
-                frontier.append(FrontierPoint(
-                    weights=w, ret=ret, vol=vol,
-                    sharpe=(ret - rf) / (vol + 1e-12),
-                    labels=self.tickers
-                ))
+                frontier.append(
+                    FrontierPoint(
+                        weights=w,
+                        ret=ret,
+                        vol=vol,
+                        sharpe=(ret - rf) / (vol + 1e-12),
+                        labels=self.tickers,
+                    )
+                )
         return frontier
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. Quantum Portfolio Optimizer (QAOA via Qiskit)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class QuantumOptimizer:
     """
@@ -276,36 +311,44 @@ class QuantumOptimizer:
       Mugel et al. (2022) Quantum 6, 684
     """
 
-    def __init__(self, returns: pd.DataFrame, n_select: int = 5,
-                 p: int = 2, backend: str = "aer_simulator"):
-        self.returns  = returns
-        self.mu       = (returns.mean() * 252).values
-        self.cov      = (returns.cov()  * 252).values
-        self.n        = len(returns.columns)
+    def __init__(
+        self,
+        returns: pd.DataFrame,
+        n_select: int = 5,
+        p: int = 2,
+        backend: str = "aer_simulator",
+    ):
+        self.returns = returns
+        self.mu = (returns.mean() * 252).values
+        self.cov = (returns.cov() * 252).values
+        self.n = len(returns.columns)
         self.n_select = min(n_select, self.n)
-        self.tickers  = returns.columns.tolist()
-        self.p        = p
-        self.backend  = backend
-        self._result  = None
+        self.tickers = returns.columns.tolist()
+        self.p = p
+        self.backend = backend
+        self._result = None
 
-    def _build_qubo(self, lambda_risk: float = 1.0,
-                    lambda_ret: float = 2.0,
-                    lambda_card: float = 5.0) -> np.ndarray:
+    def _build_qubo(
+        self,
+        lambda_risk: float = 1.0,
+        lambda_ret: float = 2.0,
+        lambda_card: float = 5.0,
+    ) -> np.ndarray:
         """
         Build QUBO matrix Q such that:
           objective = x^T Q x  (x ∈ {0,1}^n)
         """
-        n   = self.n
-        k   = self.n_select
-        Q   = np.zeros((n, n))
+        n = self.n
+        k = self.n_select
+        Q = np.zeros((n, n))
 
         # Risk term: λ_v Σ_{ij} σ_{ij} x_i x_j
-        Q  -= lambda_ret * np.diag(self.mu)    # linear: subtract return on diag
-        Q  += lambda_risk * self.cov           # quadratic: add covariance
+        Q -= lambda_ret * np.diag(self.mu)  # linear: subtract return on diag
+        Q += lambda_risk * self.cov  # quadratic: add covariance
 
         # Cardinality penalty: λ_c (Σx_i - k)^2 = λ_c [Σ x_i^2 + 2 Σ_{i<j} x_i x_j - 2k Σ x_i + k²]
-        Q  += lambda_card * np.ones((n, n))     # cross terms: 2λ upper triangle
-        Q  += lambda_card * np.diag(np.ones(n) * (1 - 2*k))  # diagonal: (1-2k)
+        Q += lambda_card * np.ones((n, n))  # cross terms: 2λ upper triangle
+        Q += lambda_card * np.diag(np.ones(n) * (1 - 2 * k))  # diagonal: (1-2k)
         # constant k² absorbed into energy offset
 
         return Q
@@ -317,12 +360,12 @@ class QuantumOptimizer:
         """
         n = Q.shape[0]
         J: Dict[Tuple, float] = {}
-        h: Dict[int, float]   = {}
+        h: Dict[int, float] = {}
 
         for i in range(n):
             # Diagonal Q_{ii} → h_i
             h[i] = h.get(i, 0) - Q[i, i] / 2
-            for j in range(i+1, n):
+            for j in range(i + 1, n):
                 J[(i, j)] = (Q[i, j] + Q[j, i]) / 4
                 h[i] = h.get(i, 0) - (Q[i, j] + Q[j, i]) / 4
                 h[j] = h.get(j, 0) - (Q[i, j] + Q[j, i]) / 4
@@ -340,9 +383,9 @@ class QuantumOptimizer:
             from qiskit_aer import AerSimulator
             from scipy.optimize import minimize as sp_minimize
 
-            n    = self.n
-            p    = self.p
-            beta  = ParameterVector("β", p)
+            n = self.n
+            p = self.p
+            beta = ParameterVector("β", p)
             gamma = ParameterVector("γ", p)
 
             def build_circuit(beta_vals, gamma_vals):
@@ -352,7 +395,7 @@ class QuantumOptimizer:
                 for layer in range(p):
                     # Problem unitary U_C(γ)
                     for i in range(n):
-                        for j in range(i+1, n):
+                        for j in range(i + 1, n):
                             coeff = Q[i, j] + Q[j, i]
                             if abs(coeff) > 1e-8:
                                 qc.rzz(2 * gamma_vals[layer] * coeff, i, j)
@@ -364,46 +407,53 @@ class QuantumOptimizer:
                 return qc
 
             def qaoa_cost(params):
-                beta_v  = params[:p]
+                beta_v = params[:p]
                 gamma_v = params[p:]
-                qc      = build_circuit(beta_v, gamma_v)
+                qc = build_circuit(beta_v, gamma_v)
 
-                sim     = AerSimulator(method="statevector")
+                sim = AerSimulator(method="statevector")
                 from qiskit import transpile
-                t_qc    = transpile(qc, sim)
-                job     = sim.run(t_qc, shots=1024)
-                counts  = job.result().get_counts()
+
+                t_qc = transpile(qc, sim)
+                job = sim.run(t_qc, shots=1024)
+                counts = job.result().get_counts()
 
                 # Compute expectation value
                 energy = 0.0
-                total  = sum(counts.values())
+                total = sum(counts.values())
                 for bitstr, count in counts.items():
                     x = np.array([int(b) for b in reversed(bitstr[:n])])
                     energy += count * float(x @ Q @ x)
                 return energy / total
 
             # Classical optimization of QAOA parameters
-            x0    = np.random.uniform(0, np.pi, 2 * p)
-            res   = sp_minimize(qaoa_cost, x0, method="COBYLA",
-                                options={"maxiter": 200, "rhobeg": 0.5})
+            x0 = np.random.uniform(0, np.pi, 2 * p)
+            res = sp_minimize(
+                qaoa_cost, x0, method="COBYLA", options={"maxiter": 200, "rhobeg": 0.5}
+            )
 
             # Sample final distribution
-            beta_opt  = res.x[:p]
+            beta_opt = res.x[:p]
             gamma_opt = res.x[p:]
-            qc_final  = build_circuit(beta_opt, gamma_opt)
-            sim       = AerSimulator(method="statevector")
+            qc_final = build_circuit(beta_opt, gamma_opt)
+            sim = AerSimulator(method="statevector")
             from qiskit import transpile
-            t_qc      = transpile(qc_final, sim)
-            job       = sim.run(t_qc, shots=4096)
-            counts    = job.result().get_counts()
+
+            t_qc = transpile(qc_final, sim)
+            job = sim.run(t_qc, shots=4096)
+            counts = job.result().get_counts()
 
             # Best sample
-            best_x    = min(counts, key=lambda b: float(
-                np.array([int(c) for c in reversed(b[:n])]) @ Q @
-                np.array([int(c) for c in reversed(b[:n])])
-            ))
-            x_opt     = np.array([int(c) for c in reversed(best_x[:n])])
-            obj       = float(x_opt @ Q @ x_opt)
+            best_x = min(
+                counts,
+                key=lambda b: float(
+                    np.array([int(c) for c in reversed(b[:n])])
+                    @ Q
+                    @ np.array([int(c) for c in reversed(b[:n])])
+                ),
+            )
+            x_opt = np.array([int(c) for c in reversed(best_x[:n])])
+            obj = float(x_opt @ Q @ x_opt)
             return x_opt, obj, res.fun
 
         except ImportError as e:
@@ -412,17 +462,19 @@ class QuantumOptimizer:
 
     def _brute_force_qubo(self, Q: np.ndarray) -> Tuple[np.ndarray, float, float]:
         """Classical brute-force QUBO (exact for n ≤ 20)."""
-        n    = self.n
-        k    = self.n_select
-        best = None; best_val = np.inf
+        n = self.n
+        k = self.n_select
+        best = None
+        best_val = np.inf
         from itertools import combinations
+
         for indices in combinations(range(n), k):
             x = np.zeros(n)
             x[list(indices)] = 1.0
             val = float(x @ Q @ x)
             if val < best_val:
                 best_val = val
-                best     = x.copy()
+                best = x.copy()
         return best, best_val, best_val
 
     def optimize(self) -> OptimizationResult:
@@ -445,7 +497,7 @@ class QuantumOptimizer:
         # Selected assets
         selected = np.where(x_opt > 0.5)[0]
         if len(selected) == 0:
-            selected = np.argsort(self.mu)[-self.n_select:]
+            selected = np.argsort(self.mu)[-self.n_select :]
 
         # Equal-weight within selection (can be refined with classical MV)
         n_sel = len(selected)
@@ -457,17 +509,17 @@ class QuantumOptimizer:
         rf_ann = 0.07
 
         self._result = OptimizationResult(
-            method       = "quantum_qaoa",
-            weights      = {self.tickers[i]: round(w_full[i], 6) for i in range(self.n)},
-            expected_ret = round(r, 4),
-            expected_vol = round(v, 4),
-            sharpe       = round((r - rf_ann) / (v + 1e-12), 4),
-            metadata     = {
+            method="quantum_qaoa",
+            weights={self.tickers[i]: round(w_full[i], 6) for i in range(self.n)},
+            expected_ret=round(r, 4),
+            expected_vol=round(v, 4),
+            sharpe=round((r - rf_ann) / (v + 1e-12), 4),
+            metadata={
                 "selected_assets": [self.tickers[i] for i in selected],
-                "qubo_energy":      round(obj, 6),
-                "qaoa_depth":       self.p,
-                "n_selected":       n_sel,
-            }
+                "qubo_energy": round(obj, 6),
+                "qaoa_depth": self.p,
+                "n_selected": n_sel,
+            },
         )
         return self._result
 
@@ -489,11 +541,15 @@ class QuantumOptimizer:
             w[selected] = 1.0 / len(selected)
             r = float(w @ self.mu)
             v = float(np.sqrt(w @ self.cov @ w))
-            frontier.append(FrontierPoint(
-                weights=w, ret=r, vol=v,
-                sharpe=(r - 0.07) / (v + 1e-12),
-                labels=self.tickers
-            ))
+            frontier.append(
+                FrontierPoint(
+                    weights=w,
+                    ret=r,
+                    vol=v,
+                    sharpe=(r - 0.07) / (v + 1e-12),
+                    labels=self.tickers,
+                )
+            )
         return frontier
 
 
@@ -501,13 +557,15 @@ class QuantumOptimizer:
 # 3. Benchmarks
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def equal_weight_portfolio(tickers: List[str]) -> Dict[str, float]:
     n = len(tickers)
-    return {t: 1/n for t in tickers}
+    return {t: 1 / n for t in tickers}
 
 
-def buy_and_hold_benchmark(returns: pd.DataFrame,
-                           weights: Optional[np.ndarray] = None) -> pd.Series:
+def buy_and_hold_benchmark(
+    returns: pd.DataFrame, weights: Optional[np.ndarray] = None
+) -> pd.Series:
     """Cumulative return of buy-and-hold strategy."""
     if weights is None:
         weights = np.ones(len(returns.columns)) / len(returns.columns)
@@ -516,24 +574,23 @@ def buy_and_hold_benchmark(returns: pd.DataFrame,
 
 
 def compute_all_portfolios(
-    returns: pd.DataFrame,
-    n_quantum_assets: int = 10
+    returns: pd.DataFrame, n_quantum_assets: int = 10
 ) -> Dict[str, OptimizationResult]:
     """
     Compute Max Sharpe, Min Vol, Risk Parity, Quantum — single call.
     """
     classical = ClassicalOptimizer(returns)
-    results   = {}
+    results = {}
 
-    results["max_sharpe"]   = classical.max_sharpe()
-    results["min_vol"]      = classical.min_volatility()
-    results["risk_parity"]  = classical.risk_parity()
+    results["max_sharpe"] = classical.max_sharpe()
+    results["min_vol"] = classical.min_volatility()
+    results["risk_parity"] = classical.risk_parity()
 
     # Equal weight baseline
     n = len(returns.columns)
     ew_w = np.ones(n) / n
-    mu   = (returns.mean() * 252).values
-    cov  = (returns.cov()  * 252).values
+    mu = (returns.mean() * 252).values
+    cov = (returns.cov() * 252).values
     ew_r = float(ew_w @ mu)
     ew_v = float(np.sqrt(ew_w @ cov @ ew_w))
     results["equal_weight"] = OptimizationResult(
@@ -545,8 +602,8 @@ def compute_all_portfolios(
     )
 
     # Quantum (on subset for speed)
-    q_returns = returns.iloc[:, :min(n_quantum_assets, n)]
-    quantum   = QuantumOptimizer(q_returns, n_select=min(5, n_quantum_assets))
-    results["quantum"]      = quantum.optimize()
+    q_returns = returns.iloc[:, : min(n_quantum_assets, n)]
+    quantum = QuantumOptimizer(q_returns, n_select=min(5, n_quantum_assets))
+    results["quantum"] = quantum.optimize()
 
     return results

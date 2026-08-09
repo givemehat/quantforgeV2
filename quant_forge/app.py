@@ -33,13 +33,23 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import NSE_TICKERS, US_TICKERS, TRADING_DAYS
 from data.pipeline import DataFetcher, FeatureEngineer, load_universe, is_market_open
 from models.risk_engine import (
-    GBM, MonteCarloEngine, RiskMetrics, PerformanceMetrics,
-    CAPM, GARCH, KalmanFilter, PCAFactorModel, BayesianVaR,
-    compute_full_risk_report
+    GBM,
+    MonteCarloEngine,
+    RiskMetrics,
+    PerformanceMetrics,
+    CAPM,
+    GARCH,
+    KalmanFilter,
+    PCAFactorModel,
+    BayesianVaR,
+    compute_full_risk_report,
 )
 from models.optimizer import (
-    ClassicalOptimizer, QuantumOptimizer,
-    compute_all_portfolios, buy_and_hold_benchmark, equal_weight_portfolio
+    ClassicalOptimizer,
+    QuantumOptimizer,
+    compute_all_portfolios,
+    buy_and_hold_benchmark,
+    equal_weight_portfolio,
 )
 
 warnings.filterwarnings("ignore")
@@ -56,7 +66,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
     menu_items={
         "About": "Quant Forge — Quantum-Inspired Financial Analytics. Built by Rajnish Singh.",
-    }
+    },
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -158,14 +168,19 @@ PLOTLY_THEME = dict(
 
 with st.sidebar:
     st.markdown("## ⚛️ Quant Forge")
-    st.markdown('<span class="badge badge-gold">v2.0 Research</span> <span class="badge badge-blue">NSE Live</span>', unsafe_allow_html=True)
+    st.markdown(
+        '<span class="badge badge-gold">v2.0 Research</span> <span class="badge badge-blue">NSE Live</span>',
+        unsafe_allow_html=True,
+    )
     st.markdown("---")
 
     # Asset selection
     st.markdown("### 📊 Universe")
     selected_universe = st.radio(
-        "Market", ["NSE India", "US Equities", "Mixed", "Crypto"],
-        index=0, horizontal=True
+        "Market",
+        ["NSE India", "US Equities", "Mixed", "Crypto"],
+        index=0,
+        horizontal=True,
     )
     if selected_universe == "NSE India":
         universe = NSE_TICKERS
@@ -177,7 +192,8 @@ with st.sidebar:
         universe = ["BTC-USD", "ETH-USD", "SOL-USD", "ADA-USD"]
 
     selected_tickers = st.multiselect(
-        "Assets", universe,
+        "Assets",
+        universe,
         default=universe[:8] if len(universe) >= 8 else universe,
     )
     if len(selected_tickers) < 2:
@@ -185,12 +201,12 @@ with st.sidebar:
         st.stop()
 
     st.markdown("### ⚙️ Parameters")
-    risk_aversion  = st.slider("Risk Aversion λ", 0.1, 5.0, 1.0, 0.1)
+    risk_aversion = st.slider("Risk Aversion λ", 0.1, 5.0, 1.0, 0.1)
     lookback_period = st.selectbox("Lookback", ["6mo", "1y", "2y", "3y"], index=1)
-    mc_paths       = st.slider("MC Paths (K)", 1, 50, 10) * 1000
-    var_conf       = st.selectbox("VaR Confidence", [0.90, 0.95, 0.99], index=1)
+    mc_paths = st.slider("MC Paths (K)", 1, 50, 10) * 1000
+    var_conf = st.selectbox("VaR Confidence", [0.90, 0.95, 0.99], index=1)
     include_quantum = st.checkbox("⚛️ Quantum Optimization", value=True)
-    n_quantum      = st.slider("Quantum Assets", 4, 10, 6)
+    n_quantum = st.slider("Quantum Assets", 4, 10, 6)
 
     st.markdown("### 🔄 Refresh")
     auto_refresh = st.checkbox("Auto Refresh (30s)", value=False)
@@ -201,12 +217,15 @@ with st.sidebar:
     st.markdown("---")
     market_status = "🟢 OPEN" if is_market_open() else "🔴 CLOSED"
     st.markdown(f"**NSE Market:** {market_status}")
-    st.caption(f"Last update: {pd.Timestamp.now(tz='Asia/Kolkata').strftime('%H:%M:%S IST')}")
+    st.caption(
+        f"Last update: {pd.Timestamp.now(tz='Asia/Kolkata').strftime('%H:%M:%S IST')}"
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Data Loading (Cached)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_data(tickers, period):
@@ -229,10 +248,10 @@ def run_optimization(returns_json, include_q, n_q):
     results = {}
     classical = ClassicalOptimizer(returns)
     results["max_sharpe"] = classical.max_sharpe()
-    results["min_vol"]    = classical.min_volatility()
+    results["min_vol"] = classical.min_volatility()
     results["risk_parity"] = classical.risk_parity()
     if include_q:
-        q_ret = returns.iloc[:, :min(n_q, len(returns.columns))]
+        q_ret = returns.iloc[:, : min(n_q, len(returns.columns))]
         quantum = QuantumOptimizer(q_ret, n_select=min(5, n_q), p=2)
         results["quantum"] = quantum.optimize()
     return results, classical.compute_frontier(30)
@@ -249,7 +268,7 @@ st.markdown(
     '<span class="badge">GBM + GARCH + Kalman</span> '
     '<span class="badge">QAOA Quantum Opt</span> '
     '<span class="badge">Monte Carlo 10K</span>',
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 st.markdown("---")
 
@@ -271,7 +290,7 @@ common = [t for t in selected_tickers if t in prices.columns]
 if not common:
     st.error("No data found for selected tickers.")
     st.stop()
-prices  = prices[common]
+prices = prices[common]
 returns = returns[common]
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -286,7 +305,9 @@ if quotes:
             delta_color = "normal" if pct >= 0 else "inverse"
             st.metric(
                 label=ticker.replace(".NS", ""),
-                value=f"₹{q['price']:,.1f}" if ".NS" in ticker else f"${q['price']:,.2f}",
+                value=(
+                    f"₹{q['price']:,.1f}" if ".NS" in ticker else f"${q['price']:,.2f}"
+                ),
                 delta=f"{pct:+.2f}%",
                 delta_color=delta_color,
             )
@@ -302,14 +323,16 @@ ew_weights = np.ones(n_assets) / n_assets
 # TABS
 # ─────────────────────────────────────────────────────────────────────────────
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "📈 Price & Technicals",
-    "🎲 Monte Carlo Risk",
-    "⚡ Efficient Frontier",
-    "⚛️ Quantum Optimizer",
-    "📊 Risk Dashboard",
-    "🔬 Factor Analysis",
-])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+    [
+        "📈 Price & Technicals",
+        "🎲 Monte Carlo Risk",
+        "⚡ Efficient Frontier",
+        "⚛️ Quantum Optimizer",
+        "📊 Risk Dashboard",
+        "🔬 Factor Analysis",
+    ]
+)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -327,46 +350,64 @@ with tab1:
         # ── Candlestick ──────────────────────────────────────────────────────
         try:
             ticker_obj = __import__("yfinance").download(
-                sel_ticker, period=lookback_period, interval="1d",
-                auto_adjust=True, progress=False
+                sel_ticker,
+                period=lookback_period,
+                interval="1d",
+                auto_adjust=True,
+                progress=False,
             )
             if len(ticker_obj) > 0:
-                fig_candle = go.Figure(data=[
-                    go.Candlestick(
-                        x=ticker_obj.index,
-                        open=ticker_obj["Open"],
-                        high=ticker_obj["High"],
-                        low=ticker_obj["Low"],
-                        close=ticker_obj["Close"],
-                        name=sel_ticker,
-                        increasing_line_color="#10b981",
-                        decreasing_line_color="#ef4444",
-                    )
-                ])
+                fig_candle = go.Figure(
+                    data=[
+                        go.Candlestick(
+                            x=ticker_obj.index,
+                            open=ticker_obj["Open"],
+                            high=ticker_obj["High"],
+                            low=ticker_obj["Low"],
+                            close=ticker_obj["Close"],
+                            name=sel_ticker,
+                            increasing_line_color="#10b981",
+                            decreasing_line_color="#ef4444",
+                        )
+                    ]
+                )
                 # Add Bollinger Bands
                 bb_upper, bb_mid, bb_lower = FeatureEngineer.bollinger_bands(
                     ticker_obj["Close"], 20, 2.0
                 )
-                for band, name, color in [(bb_upper, "BB Upper", "#ffd700"),
-                                          (bb_mid,   "BB Mid",   "#9ca3af"),
-                                          (bb_lower, "BB Lower", "#00b4d8")]:
-                    fig_candle.add_trace(go.Scatter(
-                        x=band.index, y=band.values, name=name,
-                        line=dict(color=color, width=1, dash="dot"), opacity=0.7
-                    ))
+                for band, name, color in [
+                    (bb_upper, "BB Upper", "#ffd700"),
+                    (bb_mid, "BB Mid", "#9ca3af"),
+                    (bb_lower, "BB Lower", "#00b4d8"),
+                ]:
+                    fig_candle.add_trace(
+                        go.Scatter(
+                            x=band.index,
+                            y=band.values,
+                            name=name,
+                            line=dict(color=color, width=1, dash="dot"),
+                            opacity=0.7,
+                        )
+                    )
 
                 fig_candle.update_layout(
                     **PLOTLY_THEME,
                     title=f"{sel_ticker} — OHLCV with Bollinger Bands",
-                    xaxis_title="Date", yaxis_title="Price",
-                    xaxis_rangeslider_visible=False, height=450,
+                    xaxis_title="Date",
+                    yaxis_title="Price",
+                    xaxis_rangeslider_visible=False,
+                    height=450,
                 )
                 st.plotly_chart(fig_candle, use_container_width=True)
         except Exception as e:
             st.warning(f"Candlestick error: {e}")
             # Fallback: line chart
-            fig_line = px.line(prices[sel_ticker].reset_index(),
-                               x="Date", y=sel_ticker, title=f"{sel_ticker} Close")
+            fig_line = px.line(
+                prices[sel_ticker].reset_index(),
+                x="Date",
+                y=sel_ticker,
+                title=f"{sel_ticker} Close",
+            )
             fig_line.update_layout(**PLOTLY_THEME)
             st.plotly_chart(fig_line, use_container_width=True)
 
@@ -374,39 +415,55 @@ with tab1:
         # ── RSI ──────────────────────────────────────────────────────────────
         rsi_series = FeatureEngineer.rsi(prices[sel_ticker])
         current_rsi = float(rsi_series.dropna().iloc[-1])
-        rsi_signal = "🔴 Overbought" if current_rsi > 70 else ("🟢 Oversold" if current_rsi < 30 else "⚪ Neutral")
+        rsi_signal = (
+            "🔴 Overbought"
+            if current_rsi > 70
+            else ("🟢 Oversold" if current_rsi < 30 else "⚪ Neutral")
+        )
 
         st.metric("RSI (14)", f"{current_rsi:.1f}", rsi_signal)
 
         # Vol
         rets_sel = returns[sel_ticker]
-        ann_vol  = float(rets_sel.std() * np.sqrt(252))
+        ann_vol = float(rets_sel.std() * np.sqrt(252))
         st.metric("Ann. Volatility", f"{ann_vol:.1%}")
 
         # Performance
         perf = PerformanceMetrics(rets_sel).summary()
-        st.metric("Sharpe Ratio",   f"{perf['sharpe']:.3f}")
-        st.metric("Max Drawdown",   f"{perf['max_drawdown']:.1%}")
-        st.metric("CAGR",           f"{perf['cagr']:.1%}")
-        st.metric("Sortino",        f"{perf['sortino']:.3f}")
+        st.metric("Sharpe Ratio", f"{perf['sharpe']:.3f}")
+        st.metric("Max Drawdown", f"{perf['max_drawdown']:.1%}")
+        st.metric("CAGR", f"{perf['cagr']:.1%}")
+        st.metric("Sortino", f"{perf['sortino']:.3f}")
 
     # ── Kalman Smoothing ─────────────────────────────────────────────────────
     st.markdown("### 🔬 Kalman Filter Price Smoothing")
-    kf    = KalmanFilter(process_noise=1e-4, obs_noise=0.5)
+    kf = KalmanFilter(process_noise=1e-4, obs_noise=0.5)
     kf_df = kf.smooth(prices[sel_ticker].dropna())
 
     fig_kalman = go.Figure()
-    fig_kalman.add_trace(go.Scatter(
-        x=kf_df.index, y=kf_df["price"],
-        name="Raw Price", line=dict(color="#4b5563", width=1), opacity=0.5
-    ))
-    fig_kalman.add_trace(go.Scatter(
-        x=kf_df.index, y=kf_df["smoothed"],
-        name="Kalman Smoothed", line=dict(color="#ffd700", width=2)
-    ))
+    fig_kalman.add_trace(
+        go.Scatter(
+            x=kf_df.index,
+            y=kf_df["price"],
+            name="Raw Price",
+            line=dict(color="#4b5563", width=1),
+            opacity=0.5,
+        )
+    )
+    fig_kalman.add_trace(
+        go.Scatter(
+            x=kf_df.index,
+            y=kf_df["smoothed"],
+            name="Kalman Smoothed",
+            line=dict(color="#ffd700", width=2),
+        )
+    )
     fig_kalman.update_layout(
-        **PLOTLY_THEME, title="Kalman Filter: Price Level + Trend Estimation",
-        height=300, xaxis_title="Date", yaxis_title="Price"
+        **PLOTLY_THEME,
+        title="Kalman Filter: Price Level + Trend Estimation",
+        height=300,
+        xaxis_title="Date",
+        yaxis_title="Price",
     )
     st.plotly_chart(fig_kalman, use_container_width=True)
 
@@ -416,10 +473,15 @@ with tab1:
     tick_labels = [t.replace(".NS", "") for t in corr.columns]
 
     fig_corr = px.imshow(
-        corr, x=tick_labels, y=tick_labels, zmin=-1, zmax=1,
+        corr,
+        x=tick_labels,
+        y=tick_labels,
+        zmin=-1,
+        zmax=1,
         color_continuous_scale="RdYlGn",
         title="Return Correlations (Full Lookback)",
-        aspect="auto", text_auto=".2f",
+        aspect="auto",
+        text_auto=".2f",
     )
     fig_corr.update_layout(**PLOTLY_THEME, height=400)
     st.plotly_chart(fig_corr, use_container_width=True)
@@ -445,18 +507,20 @@ with tab2:
     if st.button("▶ Run Monte Carlo Simulation"):
         with st.spinner(f"Running {mc_paths:,} paths × {mc_horizon}d..."):
             mc_engine = MonteCarloEngine(
-                returns.iloc[-504:],   # 2y lookback
-                ew_weights, n_paths=mc_paths, horizon=mc_horizon
+                returns.iloc[-504:],  # 2y lookback
+                ew_weights,
+                n_paths=mc_paths,
+                horizon=mc_horizon,
             )
             mc_result = mc_engine.run()
 
         # ── Metrics ──────────────────────────────────────────────────────────
         m1, m2, m3, m4, m5 = st.columns(5)
-        m1.metric("VaR 95%",      f"{mc_result.var_95:.2%}")
-        m2.metric("VaR 99%",      f"{mc_result.var_99:.2%}")
-        m3.metric("ES 95%",       f"{mc_result.es_95:.2%}")
-        m4.metric("Mean P&L",     f"{mc_result.mean_pnl:.2%}")
-        m5.metric("P(Loss)",      f"{mc_result.prob_loss:.1%}")
+        m1.metric("VaR 95%", f"{mc_result.var_95:.2%}")
+        m2.metric("VaR 99%", f"{mc_result.var_99:.2%}")
+        m3.metric("ES 95%", f"{mc_result.es_95:.2%}")
+        m4.metric("Mean P&L", f"{mc_result.mean_pnl:.2%}")
+        m5.metric("P(Loss)", f"{mc_result.prob_loss:.1%}")
 
         # ── Path Chart ────────────────────────────────────────────────────────
         paths = mc_result.paths[:mc_display_paths, :]
@@ -464,47 +528,67 @@ with tab2:
 
         fig_paths = go.Figure()
         for i in range(min(mc_display_paths, 100)):
-            fig_paths.add_trace(go.Scatter(
-                x=t_axis, y=paths[i],
-                line=dict(color="#00b4d8", width=0.3),
-                opacity=0.15, showlegend=False,
-                hoverinfo="skip",
-            ))
+            fig_paths.add_trace(
+                go.Scatter(
+                    x=t_axis,
+                    y=paths[i],
+                    line=dict(color="#00b4d8", width=0.3),
+                    opacity=0.15,
+                    showlegend=False,
+                    hoverinfo="skip",
+                )
+            )
         # Percentiles
-        for pct, color, name in [(5, "#ef4444", "5th Pct"),
-                                  (50, "#ffd700", "Median"),
-                                  (95, "#10b981", "95th Pct")]:
-            fig_paths.add_trace(go.Scatter(
-                x=t_axis,
-                y=np.percentile(mc_result.paths, pct, axis=0),
-                name=name,
-                line=dict(color=color, width=2),
-            ))
+        for pct, color, name in [
+            (5, "#ef4444", "5th Pct"),
+            (50, "#ffd700", "Median"),
+            (95, "#10b981", "95th Pct"),
+        ]:
+            fig_paths.add_trace(
+                go.Scatter(
+                    x=t_axis,
+                    y=np.percentile(mc_result.paths, pct, axis=0),
+                    name=name,
+                    line=dict(color=color, width=2),
+                )
+            )
         fig_paths.update_layout(
             **PLOTLY_THEME,
             title=f"Monte Carlo Paths: {mc_paths:,} simulations, {mc_horizon}d horizon",
-            xaxis_title="Trading Days", yaxis_title="Relative Price",
+            xaxis_title="Trading Days",
+            yaxis_title="Relative Price",
             height=400,
         )
         st.plotly_chart(fig_paths, use_container_width=True)
 
         # ── PnL Histogram ─────────────────────────────────────────────────────
         fig_hist = go.Figure()
-        fig_hist.add_trace(go.Histogram(
-            x=mc_result.pnl * 100,
-            nbinsx=80,
-            marker_color="#00b4d8",
-            opacity=0.7,
-            name="P&L (%)",
-        ))
-        fig_hist.add_vline(x=-mc_result.var_95*100, line_color="#ffd700",
-                           line_dash="dash", annotation_text="VaR 95%")
-        fig_hist.add_vline(x=-mc_result.var_99*100, line_color="#ef4444",
-                           line_dash="dash", annotation_text="VaR 99%")
+        fig_hist.add_trace(
+            go.Histogram(
+                x=mc_result.pnl * 100,
+                nbinsx=80,
+                marker_color="#00b4d8",
+                opacity=0.7,
+                name="P&L (%)",
+            )
+        )
+        fig_hist.add_vline(
+            x=-mc_result.var_95 * 100,
+            line_color="#ffd700",
+            line_dash="dash",
+            annotation_text="VaR 95%",
+        )
+        fig_hist.add_vline(
+            x=-mc_result.var_99 * 100,
+            line_color="#ef4444",
+            line_dash="dash",
+            annotation_text="VaR 99%",
+        )
         fig_hist.update_layout(
             **PLOTLY_THEME,
             title="P&L Distribution (Monte Carlo)",
-            xaxis_title="P&L (%)", yaxis_title="Count",
+            xaxis_title="P&L (%)",
+            yaxis_title="Count",
             height=350,
         )
         st.plotly_chart(fig_hist, use_container_width=True)
@@ -527,16 +611,16 @@ with tab3:
     with st.spinner("Computing frontiers..."):
         try:
             classical_opt = ClassicalOptimizer(returns)
-            frontier      = classical_opt.compute_frontier(30)
+            frontier = classical_opt.compute_frontier(30)
 
-            ms_result  = classical_opt.max_sharpe()
-            mv_result  = classical_opt.min_volatility()
-            rp_result  = classical_opt.risk_parity()
+            ms_result = classical_opt.max_sharpe()
+            mv_result = classical_opt.min_volatility()
+            rp_result = classical_opt.risk_parity()
 
             if include_quantum:
-                q_returns = returns.iloc[:, :min(n_quantum, n_assets)]
-                quantum   = QuantumOptimizer(q_returns, n_select=min(5, n_quantum), p=2)
-                q_result  = quantum.optimize()
+                q_returns = returns.iloc[:, : min(n_quantum, n_assets)]
+                quantum = QuantumOptimizer(q_returns, n_select=min(5, n_quantum), p=2)
+                q_result = quantum.optimize()
                 q_frontier = quantum.quantum_frontier(8)
 
         except Exception as e:
@@ -551,58 +635,80 @@ with tab3:
         ef_vols = [p.vol for p in frontier]
         ef_rets = [p.ret for p in frontier]
         ef_sharpes = [p.sharpe for p in frontier]
-        fig_ef.add_trace(go.Scatter(
-            x=ef_vols, y=ef_rets,
-            mode="lines",
-            line=dict(color="#00b4d8", width=3),
-            name="Classical Frontier",
-        ))
+        fig_ef.add_trace(
+            go.Scatter(
+                x=ef_vols,
+                y=ef_rets,
+                mode="lines",
+                line=dict(color="#00b4d8", width=3),
+                name="Classical Frontier",
+            )
+        )
 
     # Key portfolios
     for label, res, color, sym in [
         ("Max Sharpe", ms_result, "#ffd700", "star"),
-        ("Min Vol",    mv_result, "#10b981", "diamond"),
-        ("Risk Parity",rp_result, "#f59e0b", "circle"),
+        ("Min Vol", mv_result, "#10b981", "diamond"),
+        ("Risk Parity", rp_result, "#f59e0b", "circle"),
     ]:
-        fig_ef.add_trace(go.Scatter(
-            x=[res.expected_vol], y=[res.expected_ret],
-            mode="markers+text",
-            marker=dict(color=color, size=14, symbol=sym,
-                        line=dict(color="white", width=2)),
-            text=[label], textposition="top center",
-            name=label,
-        ))
+        fig_ef.add_trace(
+            go.Scatter(
+                x=[res.expected_vol],
+                y=[res.expected_ret],
+                mode="markers+text",
+                marker=dict(
+                    color=color, size=14, symbol=sym, line=dict(color="white", width=2)
+                ),
+                text=[label],
+                textposition="top center",
+                name=label,
+            )
+        )
 
     # Quantum portfolio
     if include_quantum and q_result:
-        fig_ef.add_trace(go.Scatter(
-            x=[q_result.expected_vol], y=[q_result.expected_ret],
-            mode="markers+text",
-            marker=dict(color="#a855f7", size=18, symbol="hexagram",
-                        line=dict(color="white", width=2)),
-            text=["⚛️ Quantum"], textposition="top center",
-            name="Quantum QAOA",
-        ))
+        fig_ef.add_trace(
+            go.Scatter(
+                x=[q_result.expected_vol],
+                y=[q_result.expected_ret],
+                mode="markers+text",
+                marker=dict(
+                    color="#a855f7",
+                    size=18,
+                    symbol="hexagram",
+                    line=dict(color="white", width=2),
+                ),
+                text=["⚛️ Quantum"],
+                textposition="top center",
+                name="Quantum QAOA",
+            )
+        )
         if q_frontier:
-            fig_ef.add_trace(go.Scatter(
-                x=[p.vol for p in q_frontier],
-                y=[p.ret for p in q_frontier],
-                mode="lines",
-                line=dict(color="#a855f7", width=2, dash="dash"),
-                name="Quantum Frontier",
-                opacity=0.7,
-            ))
+            fig_ef.add_trace(
+                go.Scatter(
+                    x=[p.vol for p in q_frontier],
+                    y=[p.ret for p in q_frontier],
+                    mode="lines",
+                    line=dict(color="#a855f7", width=2, dash="dash"),
+                    name="Quantum Frontier",
+                    opacity=0.7,
+                )
+            )
 
     # Equal weight
     ew_r = float(ew_weights @ returns.mean().values * 252)
     ew_v = float(np.sqrt(ew_weights @ (returns.cov().values * 252) @ ew_weights))
-    fig_ef.add_trace(go.Scatter(
-        x=[ew_v], y=[ew_r],
-        mode="markers+text",
-        marker=dict(color="#6b7280", size=10, symbol="cross"),
-        text=["Equal Weight"], textposition="top center",
-        name="Equal Weight",
-    ))
+    fig_ef.add_trace(
+        go.Scatter(
+            x=[ew_v],
+            y=[ew_r],
+            mode="markers+text",
+            marker=dict(color="#6b7280", size=10, symbol="cross"),
+            text=["Equal Weight"],
+            textposition="top center",
+            name="Equal Weight",
+        )
+    )
 
     fig_ef.update_layout(
         **PLOTLY_THEME,
@@ -617,32 +723,44 @@ with tab3:
     # ── Comparison Table ──────────────────────────────────────────────────────
     st.markdown("### Portfolio Performance Comparison")
     comparison_data = []
-    for label, res in [("Max Sharpe", ms_result), ("Min Vol", mv_result),
-                       ("Risk Parity", rp_result)]:
-        comparison_data.append({
-            "Strategy": label,
-            "Exp. Return": f"{res.expected_ret:.1%}",
-            "Exp. Vol":    f"{res.expected_vol:.1%}",
-            "Sharpe":      f"{res.sharpe:.3f}",
-            "Method":      res.method,
-        })
+    for label, res in [
+        ("Max Sharpe", ms_result),
+        ("Min Vol", mv_result),
+        ("Risk Parity", rp_result),
+    ]:
+        comparison_data.append(
+            {
+                "Strategy": label,
+                "Exp. Return": f"{res.expected_ret:.1%}",
+                "Exp. Vol": f"{res.expected_vol:.1%}",
+                "Sharpe": f"{res.sharpe:.3f}",
+                "Method": res.method,
+            }
+        )
     if include_quantum and q_result:
-        comparison_data.append({
-            "Strategy": "⚛️ Quantum QAOA",
-            "Exp. Return": f"{q_result.expected_ret:.1%}",
-            "Exp. Vol":    f"{q_result.expected_vol:.1%}",
-            "Sharpe":      f"{q_result.sharpe:.3f}",
-            "Method":      "QAOA/QUBO",
-        })
-    st.dataframe(pd.DataFrame(comparison_data), use_container_width=True, hide_index=True)
+        comparison_data.append(
+            {
+                "Strategy": "⚛️ Quantum QAOA",
+                "Exp. Return": f"{q_result.expected_ret:.1%}",
+                "Exp. Vol": f"{q_result.expected_vol:.1%}",
+                "Sharpe": f"{q_result.sharpe:.3f}",
+                "Method": "QAOA/QUBO",
+            }
+        )
+    st.dataframe(
+        pd.DataFrame(comparison_data), use_container_width=True, hide_index=True
+    )
 
     # ── Weight Allocation Chart ───────────────────────────────────────────────
     st.markdown("### Portfolio Weight Allocation")
     w_col1, w_col2 = st.columns(2)
-    for col, (label, result) in zip([w_col1, w_col2],
-                                    [("Max Sharpe", ms_result), ("Min Vol", mv_result)]):
-        w_dict   = {k.replace(".NS",""):v for k,v in result.weights.items() if v > 0.001}
-        fig_pie  = px.pie(
+    for col, (label, result) in zip(
+        [w_col1, w_col2], [("Max Sharpe", ms_result), ("Min Vol", mv_result)]
+    ):
+        w_dict = {
+            k.replace(".NS", ""): v for k, v in result.weights.items() if v > 0.001
+        }
+        fig_pie = px.pie(
             values=list(w_dict.values()),
             names=list(w_dict.keys()),
             title=f"{label} Weights",
@@ -670,7 +788,7 @@ with tab4:
     if not include_quantum:
         st.info("Enable **Quantum Optimization** in sidebar to run.")
     else:
-        q_returns_sub = returns.iloc[:, :min(n_quantum, n_assets)]
+        q_returns_sub = returns.iloc[:, : min(n_quantum, n_assets)]
         q_opt = QuantumOptimizer(q_returns_sub, n_select=min(5, n_quantum), p=2)
 
         if st.button("⚛️ Run QAOA Optimization"):
@@ -678,34 +796,47 @@ with tab4:
                 q_res = q_opt.optimize()
 
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Exp. Return",   f"{q_res.expected_ret:.1%}")
-            c2.metric("Exp. Vol",      f"{q_res.expected_vol:.1%}")
-            c3.metric("Sharpe",        f"{q_res.sharpe:.3f}")
+            c1.metric("Exp. Return", f"{q_res.expected_ret:.1%}")
+            c2.metric("Exp. Vol", f"{q_res.expected_vol:.1%}")
+            c3.metric("Sharpe", f"{q_res.sharpe:.3f}")
             c4.metric("Assets Selected", q_res.metadata.get("n_selected", 0))
 
             st.markdown("### Selected Portfolio")
             selected = q_res.metadata.get("selected_assets", [])
             if selected:
-                st.success(f"**Quantum-Selected Assets:** {', '.join([s.replace('.NS','') for s in selected])}")
+                st.success(
+                    f"**Quantum-Selected Assets:** {', '.join([s.replace('.NS','') for s in selected])}"
+                )
 
             # Weight bar chart
-            w_df = pd.DataFrame([
-                {"Asset": k.replace(".NS",""), "Weight": v}
-                for k, v in q_res.weights.items() if v > 0.001
-            ]).sort_values("Weight", ascending=True)
+            w_df = pd.DataFrame(
+                [
+                    {"Asset": k.replace(".NS", ""), "Weight": v}
+                    for k, v in q_res.weights.items()
+                    if v > 0.001
+                ]
+            ).sort_values("Weight", ascending=True)
 
-            fig_bar = px.bar(w_df, x="Weight", y="Asset", orientation="h",
-                             color="Weight", color_continuous_scale="Plasma",
-                             title="Quantum QAOA Portfolio Weights")
+            fig_bar = px.bar(
+                w_df,
+                x="Weight",
+                y="Asset",
+                orientation="h",
+                color="Weight",
+                color_continuous_scale="Plasma",
+                title="Quantum QAOA Portfolio Weights",
+            )
             fig_bar.update_layout(**PLOTLY_THEME, height=350)
             st.plotly_chart(fig_bar, use_container_width=True)
 
             # QUBO matrix visualization
             st.markdown("### QUBO Matrix Heatmap")
             Q = q_opt._build_qubo()
-            q_labels = [t.replace(".NS","") for t in q_returns_sub.columns]
+            q_labels = [t.replace(".NS", "") for t in q_returns_sub.columns]
             fig_qubo = px.imshow(
-                Q, x=q_labels, y=q_labels,
+                Q,
+                x=q_labels,
+                y=q_labels,
                 color_continuous_scale="RdYlBu_r",
                 title="QUBO Matrix Q_{ij}",
                 text_auto=".2f",
@@ -715,7 +846,8 @@ with tab4:
 
             # Quantum circuit info
             st.markdown("### Quantum Circuit Summary")
-            st.code(f"""
+            st.code(
+                f"""
 QAOA Circuit Configuration:
   - Qubits:     {min(n_quantum, n_assets)} (one per asset)
   - QAOA Depth: p = {q_opt.p}
@@ -730,7 +862,9 @@ Problem:
   - n = {min(n_quantum, n_assets)} assets → 2^{min(n_quantum, n_assets)} = {2**min(n_quantum, n_assets)} states
   - k = {min(5, n_quantum)} assets selected (cardinality constraint)
   - QUBO energy at solution: {q_res.metadata.get('qubo_energy', 'N/A'):.4f}
-            """, language="text")
+            """,
+                language="text",
+            )
         else:
             st.info("👆 Click **Run QAOA Optimization** to start quantum solver")
 
@@ -752,23 +886,38 @@ with tab5:
             # Align
             idx = returns.index.intersection(nifty_returns.index)
             capm_model = CAPM(returns.loc[idx], nifty_returns.loc[idx])
-            capm_res   = capm_model.fit()
+            capm_res = capm_model.fit()
 
             capm_df = pd.DataFrame(capm_res).T.reset_index()
-            capm_df.columns = ["Asset", "Alpha (Ann.)", "Beta", "R²", "Exp. Return", "Treynor"]
-            capm_df["Asset"] = capm_df["Asset"].str.replace(".NS","")
+            capm_df.columns = [
+                "Asset",
+                "Alpha (Ann.)",
+                "Beta",
+                "R²",
+                "Exp. Return",
+                "Treynor",
+            ]
+            capm_df["Asset"] = capm_df["Asset"].str.replace(".NS", "")
             st.dataframe(capm_df, use_container_width=True, hide_index=True)
 
             # Beta vs Alpha scatter
             fig_capm = px.scatter(
-                capm_df, x="Beta", y="Alpha (Ann.)",
-                text="Asset", size_max=14,
-                color="R²", color_continuous_scale="Viridis",
+                capm_df,
+                x="Beta",
+                y="Alpha (Ann.)",
+                text="Asset",
+                size_max=14,
+                color="R²",
+                color_continuous_scale="Viridis",
                 title="CAPM: Alpha vs Beta (Jensen's Alpha)",
                 labels={"Alpha (Ann.)": "α (Annualized)"},
             )
-            fig_capm.add_vline(x=1, line_dash="dash", line_color="#9ca3af",
-                               annotation_text="Market Beta=1")
+            fig_capm.add_vline(
+                x=1,
+                line_dash="dash",
+                line_color="#9ca3af",
+                annotation_text="Market Beta=1",
+            )
             fig_capm.add_hline(y=0, line_dash="dash", line_color="#9ca3af")
             fig_capm.update_traces(textposition="top center")
             fig_capm.update_layout(**PLOTLY_THEME, height=400)
@@ -784,32 +933,40 @@ with tab5:
         try:
             garch_model = GARCH(returns[garch_ticker].dropna())
             garch_model.fit()
-            cond_vol   = garch_model.conditional_vol()
-            params     = garch_model.params()
+            cond_vol = garch_model.conditional_vol()
+            params = garch_model.params()
 
             g1, g2, g3, g4 = st.columns(4)
-            g1.metric("ω (omega)",       f"{params['omega']:.6f}")
-            g2.metric("α (arch)",        f"{params['alpha']:.4f}")
-            g3.metric("β (garch)",       f"{params['beta']:.4f}")
+            g1.metric("ω (omega)", f"{params['omega']:.6f}")
+            g2.metric("α (arch)", f"{params['alpha']:.4f}")
+            g3.metric("β (garch)", f"{params['beta']:.4f}")
             g4.metric("Persistence α+β", f"{params['persistence']:.4f}")
 
             fig_garch = go.Figure()
-            fig_garch.add_trace(go.Scatter(
-                x=cond_vol.index, y=cond_vol.values,
-                fill="tozeroy", fillcolor="rgba(0,180,216,0.1)",
-                line=dict(color="#00b4d8", width=2),
-                name="GARCH(1,1) Conditional Vol",
-            ))
-            fig_garch.add_trace(go.Scatter(
-                x=returns[garch_ticker].rolling(21).std().dropna().index * np.sqrt(252),
-                y=returns[garch_ticker].rolling(21).std().dropna() * np.sqrt(252),
-                line=dict(color="#ffd700", width=1, dash="dot"),
-                name="Rolling 21d Vol",
-            ))
+            fig_garch.add_trace(
+                go.Scatter(
+                    x=cond_vol.index,
+                    y=cond_vol.values,
+                    fill="tozeroy",
+                    fillcolor="rgba(0,180,216,0.1)",
+                    line=dict(color="#00b4d8", width=2),
+                    name="GARCH(1,1) Conditional Vol",
+                )
+            )
+            fig_garch.add_trace(
+                go.Scatter(
+                    x=returns[garch_ticker].rolling(21).std().dropna().index
+                    * np.sqrt(252),
+                    y=returns[garch_ticker].rolling(21).std().dropna() * np.sqrt(252),
+                    line=dict(color="#ffd700", width=1, dash="dot"),
+                    name="Rolling 21d Vol",
+                )
+            )
             fig_garch.update_layout(
                 **PLOTLY_THEME,
                 title=f"GARCH(1,1): {garch_ticker} Conditional Volatility",
-                xaxis_title="Date", yaxis_title="Ann. Volatility",
+                xaxis_title="Date",
+                yaxis_title="Ann. Volatility",
                 height=380,
             )
             st.plotly_chart(fig_garch, use_container_width=True)
@@ -819,43 +976,53 @@ with tab5:
     # ── VaR Comparison ────────────────────────────────────────────────────────
     st.markdown("### 🔴 VaR / ES — All Methods")
     var_ticker = st.selectbox("Asset for VaR", common, key="var_sel")
-    rm         = RiskMetrics(returns[var_ticker], confidence=var_conf)
-    var_res    = rm.all_methods()
-    bayes_var  = BayesianVaR(returns[var_ticker]).posterior_var()
+    rm = RiskMetrics(returns[var_ticker], confidence=var_conf)
+    var_res = rm.all_methods()
+    bayes_var = BayesianVaR(returns[var_ticker]).posterior_var()
 
     var_rows = []
     for method, vals in var_res.items():
-        var_rows.append({
-            "Method": method.replace("_", " ").title(),
-            f"VaR {var_conf:.0%}": f"{vals['var']:.4f} ({vals['var']*100:.2f}%)",
-            f"ES {var_conf:.0%}":  f"{vals['es']:.4f} ({vals['es']*100:.2f}%)",
-        })
-    var_rows.append({
-        "Method": "Bayesian (NIG Prior)",
-        f"VaR {var_conf:.0%}": f"{bayes_var['posterior_var']:.4f}",
-        f"ES {var_conf:.0%}":  f"{bayes_var['posterior_es']:.4f}",
-    })
+        var_rows.append(
+            {
+                "Method": method.replace("_", " ").title(),
+                f"VaR {var_conf:.0%}": f"{vals['var']:.4f} ({vals['var']*100:.2f}%)",
+                f"ES {var_conf:.0%}": f"{vals['es']:.4f} ({vals['es']*100:.2f}%)",
+            }
+        )
+    var_rows.append(
+        {
+            "Method": "Bayesian (NIG Prior)",
+            f"VaR {var_conf:.0%}": f"{bayes_var['posterior_var']:.4f}",
+            f"ES {var_conf:.0%}": f"{bayes_var['posterior_es']:.4f}",
+        }
+    )
     st.dataframe(pd.DataFrame(var_rows), use_container_width=True, hide_index=True)
 
     # ── Drawdown Chart ────────────────────────────────────────────────────────
     st.markdown("### 📉 Drawdown Analysis")
-    port_price  = (prices * ew_weights).sum(axis=1)
-    cumret      = port_price / port_price.iloc[0]
+    port_price = (prices * ew_weights).sum(axis=1)
+    cumret = port_price / port_price.iloc[0]
     rolling_max = cumret.cummax()
-    drawdown    = (cumret - rolling_max) / rolling_max
+    drawdown = (cumret - rolling_max) / rolling_max
 
     fig_dd = go.Figure()
-    fig_dd.add_trace(go.Scatter(
-        x=drawdown.index, y=drawdown.values,
-        fill="tozeroy", fillcolor="rgba(239,68,68,0.2)",
-        line=dict(color="#ef4444", width=1),
-        name="Portfolio Drawdown",
-    ))
+    fig_dd.add_trace(
+        go.Scatter(
+            x=drawdown.index,
+            y=drawdown.values,
+            fill="tozeroy",
+            fillcolor="rgba(239,68,68,0.2)",
+            line=dict(color="#ef4444", width=1),
+            name="Portfolio Drawdown",
+        )
+    )
     fig_dd.update_layout(
         **PLOTLY_THEME,
         title="Portfolio Underwater Equity Curve",
-        xaxis_title="Date", yaxis_title="Drawdown",
-        height=300, yaxis_tickformat=".1%",
+        xaxis_title="Date",
+        yaxis_title="Drawdown",
+        height=300,
+        yaxis_tickformat=".1%",
     )
     st.plotly_chart(fig_dd, use_container_width=True)
 
@@ -868,23 +1035,30 @@ with tab6:
     st.markdown("## 🔬 PCA Factor Analysis & Multi-Param Heatmap")
 
     with st.spinner("Running PCA..."):
-        pca_model = PCAFactorModel(n_components=min(5, n_assets-1))
+        pca_model = PCAFactorModel(n_components=min(5, n_assets - 1))
         pca_model.fit(returns)
         pca_summary = pca_model.explained_variance_summary()
         factor_rets = pca_model.factor_returns(returns)
 
     # Scree plot
     fig_scree = go.Figure()
-    fig_scree.add_trace(go.Bar(
-        x=pca_summary.index, y=pca_summary["var_ratio"],
-        marker_color="#00b4d8", name="Var Ratio",
-    ))
-    fig_scree.add_trace(go.Scatter(
-        x=pca_summary.index, y=pca_summary["cumulative"],
-        line=dict(color="#ffd700", width=2),
-        name="Cumulative",
-        yaxis="y2",
-    ))
+    fig_scree.add_trace(
+        go.Bar(
+            x=pca_summary.index,
+            y=pca_summary["var_ratio"],
+            marker_color="#00b4d8",
+            name="Var Ratio",
+        )
+    )
+    fig_scree.add_trace(
+        go.Scatter(
+            x=pca_summary.index,
+            y=pca_summary["cumulative"],
+            line=dict(color="#ffd700", width=2),
+            name="Cumulative",
+            yaxis="y2",
+        )
+    )
     fig_scree.update_layout(
         **PLOTLY_THEME,
         title="PCA Scree Plot — Explained Variance",
@@ -899,13 +1073,16 @@ with tab6:
     loadings = pd.DataFrame(
         pca_model.eigvecs,
         columns=returns.columns,
-        index=[f"PC{i+1}" for i in range(len(pca_model.eigvecs))]
+        index=[f"PC{i+1}" for i in range(len(pca_model.eigvecs))],
     )
-    loadings.columns = [c.replace(".NS","") for c in loadings.columns]
+    loadings.columns = [c.replace(".NS", "") for c in loadings.columns]
 
     fig_load = px.imshow(
-        loadings, color_continuous_scale="RdYlGn",
-        zmin=-1, zmax=1, aspect="auto",
+        loadings,
+        color_continuous_scale="RdYlGn",
+        zmin=-1,
+        zmax=1,
+        aspect="auto",
         title="PCA Factor Loadings (Eigenvectors)",
         text_auto=".2f",
     )
@@ -914,10 +1091,12 @@ with tab6:
 
     # ── Multi-Param Risk/Return Heatmap ──────────────────────────────────────
     st.markdown("### 🌡️ Multi-Parameter Risk–Return Heatmap")
-    st.markdown("Sweeping **Risk Aversion (λ)** × **Lookback Window** → Sharpe surface.")
+    st.markdown(
+        "Sweeping **Risk Aversion (λ)** × **Lookback Window** → Sharpe surface."
+    )
 
-    lambdas  = np.linspace(0.5, 5.0, 8)
-    windows  = [42, 63, 126, 252]
+    lambdas = np.linspace(0.5, 5.0, 8)
+    windows = [42, 63, 126, 252]
     sharpe_grid = np.zeros((len(lambdas), len(windows)))
 
     with st.spinner("Computing multi-param grid..."):
@@ -927,18 +1106,26 @@ with tab6:
                     r_sub = returns.iloc[-win:]
                     if len(r_sub) < 20:
                         continue
-                    mu_  = r_sub.mean().values * 252
-                    cov_ = r_sub.cov().values  * 252
+                    mu_ = r_sub.mean().values * 252
+                    cov_ = r_sub.cov().values * 252
                     # MV with risk aversion
                     from scipy.optimize import minimize as sp_min
-                    def obj(w): return lam * w @ cov_ @ w - w @ mu_
+
+                    def obj(w):
+                        return lam * w @ cov_ @ w - w @ mu_
+
                     w0 = np.ones(n_assets) / n_assets
-                    res = sp_min(obj, w0,
-                                 bounds=[(0,1)]*n_assets,
-                                 constraints=[{"type":"eq","fun":lambda w:w.sum()-1}],
-                                 method="SLSQP")
-                    w = np.maximum(res.x, 0); w /= w.sum()
-                    r_ = w @ mu_; v_ = np.sqrt(w @ cov_ @ w)
+                    res = sp_min(
+                        obj,
+                        w0,
+                        bounds=[(0, 1)] * n_assets,
+                        constraints=[{"type": "eq", "fun": lambda w: w.sum() - 1}],
+                        method="SLSQP",
+                    )
+                    w = np.maximum(res.x, 0)
+                    w /= w.sum()
+                    r_ = w @ mu_
+                    v_ = np.sqrt(w @ cov_ @ w)
                     sharpe_grid[i, j] = (r_ - 0.07) / (v_ + 1e-12)
                 except:
                     pass
@@ -961,14 +1148,19 @@ with tab6:
     colors_f = ["#ffd700", "#00b4d8", "#10b981", "#f59e0b", "#a855f7"]
     for i, col in enumerate(factor_rets.columns):
         cumr = (1 + factor_rets[col]).cumprod()
-        fig_factors.add_trace(go.Scatter(
-            x=cumr.index, y=cumr.values,
-            name=col, line=dict(color=colors_f[i % 5], width=2)
-        ))
+        fig_factors.add_trace(
+            go.Scatter(
+                x=cumr.index,
+                y=cumr.values,
+                name=col,
+                line=dict(color=colors_f[i % 5], width=2),
+            )
+        )
     fig_factors.update_layout(
         **PLOTLY_THEME,
         title="Cumulative Factor Returns (PCA Components)",
-        xaxis_title="Date", yaxis_title="Cumulative Return",
+        xaxis_title="Date",
+        yaxis_title="Cumulative Return",
         height=350,
     )
     st.plotly_chart(fig_factors, use_container_width=True)
@@ -988,7 +1180,7 @@ st.markdown(
     arXiv-ready research prototype
     </div>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 # Auto-refresh
