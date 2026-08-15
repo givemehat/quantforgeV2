@@ -7,7 +7,6 @@
   <img src="https://img.shields.io/github/last-commit/givemehat/quantforgeV2?style=for-the-badge&color=red" alt="Last Commit" />
 </div>
 
-
 Dockerized Quant Forge application.
 
 ## Description
